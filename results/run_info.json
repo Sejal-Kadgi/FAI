@@ -1,0 +1,41 @@
+{
+ "versions": {
+  "python": "3.13.18",
+  "numpy": "2.5.3",
+  "matplotlib": "3.11.2",
+  "platform": "Linux-6.18.44-fc-v726-x86_64-with-glibc2.39",
+  "cpus": 2
+ },
+ "started": "2026-11-22 10:31:31",
+ "steps": {
+  "E1": {
+   "seconds": 319.9,
+   "returncode": 0
+  },
+  "E2": {
+   "seconds": 591.9,
+   "returncode": 0
+  },
+  "E3-S": {
+   "seconds": 252.1,
+   "returncode": 0
+  },
+  "E4": {
+   "seconds": 2358.0,
+   "returncode": 0
+  },
+  "E5": {
+   "seconds": 2279.8,
+   "returncode": 0
+  },
+  "E3-L": {
+   "seconds": 906.0,
+   "returncode": 0
+  },
+  "plots": {
+   "returncode": 0
+  }
+ },
+ "total_seconds": 6716.8,
+ "finished": "2026-11-22 12:23:28"
+}

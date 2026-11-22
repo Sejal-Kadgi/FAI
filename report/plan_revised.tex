@@ -1,0 +1,300 @@
+\documentclass[11pt]{article}
+\usepackage[a4paper,margin=1in]{geometry}
+\usepackage[T1]{fontenc}
+\usepackage{mathptmx}
+\usepackage{amsmath,amssymb,amsthm,booktabs,enumitem,xcolor,fancyhdr,tabularx,array}
+\usepackage[ruled,vlined,linesnumbered]{algorithm2e}
+\usepackage[hidelinks]{hyperref}
+\usepackage{natbib}
+\setcitestyle{numbers,square}
+
+\pagestyle{fancy}\fancyhf{}
+\renewcommand{\headrulewidth}{0.4pt}
+\fancyhead[R]{\small Bluffing Against Strangers \quad \textsc{Multi-Agent Systems: Revised Plan}}
+\fancyfoot[C]{\thepage}
+
+\newtheorem{definition}{Definition}
+\newtheorem{lemma}{Lemma}
+\newtheorem{proposition}{Proposition}
+\newtheorem{corollary}{Corollary}
+\newtheorem{problem}{Problem}
+\newcommand{\eps}{\varepsilon}
+\newcommand{\epsbar}{\bar{\eps}}
+\newcommand{\emax}{\eps_{\max}}
+\newcommand{\BR}{\mathrm{BR}}
+\newcommand{\new}[1]{\textcolor{blue!55!black}{#1}}
+\setlist{nosep,leftmargin=*}
+
+\title{\textsc{Bluffing Against Strangers: Learning Opponent Strategies\\ in a Short Encounter Under a Safety Constraint}\\[4pt]
+\large Multi-Agent Systems: Revised Project Plan (after idea review)}
+\author{Somireddy Bhavitha \and Sejal Vinayak Kadgi \and Siri Durugapu \and Lavanya Gupta\\
+\small Indian Institute of Technology Gandhinagar\\
+\small \texttt{24110350@iitgn.ac.in, \{sejal.kadgi, siri.durugapu, lavanya.gupta\}@iitgn.ac.in}}
+\date{Group 35 \quad $\cdot$ \quad November 2026}
+
+\begin{document}
+\maketitle
+\thispagestyle{fancy}
+
+\begin{abstract}
+Equilibrium play in a hidden-information game is safe but conservative: it guarantees a floor against any opponent yet leaves value unclaimed against opponents who bluff too much or call too rarely. An agent that learns such biases can win more, but every deviation from equilibrium makes it exploitable. We study this tension in a reduced two-player version of the deception game Bluff in which \new{some cards are never dealt, so a player can never reconstruct the opponent's hand}. Information about the opponent's honesty arrives mainly through showdowns, which are \new{paid for in points} because a failed call costs the pile. We formulate \emph{safe exploitation in a short encounter}: within $G$ games against a stranger, maximise the exploitation gain over a CFR equilibrium subject to an exploitability cap $\epsbar$ \new{that holds in every game}. We show that the regret of any equilibrium/best-response mixture decomposes exactly into a price of safety and a price of ignorance, \new{and that convexity of exploitability in the mixing weight yields a cheap rule that enforces the cap exactly}. We compare a Bayesian learner with gated, cap-enforced mixing and information-seeking calls against model-free selection (UCB1, Exp3), a restricted Nash response, and an oracle.
+\end{abstract}
+
+\section*{Response to the idea-review feedback}
+Changes are marked in \new{blue} in the body. Table~\ref{tab:resp} maps each point to the change and where it appears.
+
+\begin{table}[h]
+\centering\small
+\begin{tabularx}{\linewidth}{@{}>{\raggedright\arraybackslash}p{3.6cm}X>{\raggedright\arraybackslash}p{1.8cm}@{}}
+\toprule
+Feedback & What we changed & Where\\
+\midrule
+1.\ Full deal makes the opponent's hand known, so many claims can be checked without a call. &
+Each player now receives $h<Km/2$ cards; $U=Km-2h\ge 2$ cards stay undealt. Both testbeds, Bluff(3,2,2,6) and Bluff(4,2,3,4), leave two cards undealt, so every hand is consistent with several opponent hands. E1 now \emph{measures} the problem: the share of claims that the responder can classify from its own information, with and without a full deal. &
+Def.~5, \S2.3, E1\\[3pt]
+2.\ Why stop learning after $B$ reveals, when calls already cost points? &
+We agree that a rational agent should never discard information, so the deployed learner no longer freezes its belief. The scarce resource is the \emph{length of the encounter} ($G$ games with a stranger). The price of information is endogenous: a failed call costs the pile, and information-seeking calls trade points for entropy reduction explicitly. The frozen belief survives only as a \emph{measurement device} (information level $n$) used to plot value-of-information curves. It is never a behaviour rule. &
+Def.~7, Prob.~1, \S3.3, \S4\\[3pt]
+3.\ The $\alpha$ rules do not enforce the exploitability limit of Problem~1. &
+New Proposition~1. The safety metric is the \emph{worst seat}, $\emax(\pi)=\max_i\eps_i(\pi_i)$; a seat average would not bound each seat. Each $\eps_i(x_\alpha)$ is convex in $\alpha$, so $\emax$ is too, and with $\emax(x^*)\le\epsbar$ the feasible weights form an interval $[0,\alpha_{\max}]$. We cap every rule by the \emph{chord rule} $\hat\alpha=(\epsbar-\emax(x^*))/(\emax(x^{\BR})-\emax(x^*))$, which needs two exact exploitability evaluations and is guaranteed feasible, or by bisection for the tight $\alpha_{\max}$. Because $v^*$ is only known approximately, each $\eps_i$ is replaced by a certified upper bound. If $\epsbar<\emax(x^*)$ the learner reports the constraint as infeasible. The cap bounds the worst case \emph{in every seat}: $u_i\ge v_i^*-\epsbar$ against any opponent (Corollary~1). &
+Prop.~1, Cor.~1, Alg.~1\\[3pt]
+4.\ Scope too large; prioritise E1--E4 and do one of E5/E6. &
+Core = E1--E4. We keep E5 (misspecification) as the single robustness study, since it directly tests the safety guarantee, and move E6 (type switching) to future work. Exact computation on the reduced game replaces the earlier plan to fall back to Monte Carlo CFR. &
+\S4.3, \S4.5\\
+\bottomrule
+\end{tabularx}
+\caption{Feedback and the corresponding revisions.}\label{tab:resp}
+\end{table}
+
+\section{Introduction}
+Whenever people negotiate, play poker, or defend a network against an unseen attacker, they face the same dilemma. The ``safe'' choice is to play as if the other side were perfectly rational: a Nash equilibrium guarantees a minimum outcome whatever the opponent does~\cite{shoham2008}. Real opponents are not perfectly rational, and an equilibrium strategy does nothing to profit from their habits. The alternative is to learn the opponent and exploit them, but a strategy tuned to one opponent can be punished by another~\cite{ganzfried2015}.
+
+The trade-off is sharpest in deception games, where the most useful evidence about an opponent (whether a claim was true) is normally hidden. In Bluff (Cheat), players discard cards face down while claiming a required rank, and the opponent accepts or calls. Only a call reveals whether the claim was honest, and a wrong call costs the caller the whole pile. \new{Meeting a stranger for a short encounter, an agent therefore has two scarce things: time (the number of games it will play against this person) and showdowns, which it must pay for. Our question is how far it should deviate from equilibrium, given what it has learned so far, without ever exceeding a fixed exploitability budget.}
+
+\paragraph{Related work.} CFR computes approximate equilibria in large imperfect-information games~\cite{zinkevich2007,lanctot2009,neller2013} and underlies superhuman poker agents~\cite{brown2018,brown2019}. Opponent modelling is surveyed in~\cite{albrecht2018}. Southey et al.~\cite{southey2005} maintain a Bayesian posterior over opponent strategies in poker; restricted Nash and data-biased responses trade exploitation for robustness~\cite{johanson2007,johanson2009}; Ganzfried and Sandholm~\cite{ganzfried2015} give safe exploitation with guarantees; Bard et al.~\cite{bard2013} select among a portfolio of responses online; model-free alternatives treat candidate strategies as bandit arms~\cite{auer2002ucb,auer2002exp3}.
+
+\paragraph{Gap and idea.} These works largely assume observations arrive at a fixed rate. We make the scarcity of revealing observations explicit and distinguish two channels: an opponent's call propensity is visible in every response (\emph{action channel}), whereas its bluff propensity is visible only at showdowns or when a claim is provably false from our own hand (\emph{reveal channel}). We ask how this asymmetry shapes identification and how the remaining uncertainty should limit deviation from equilibrium \new{under a hard, per-game safety constraint}.
+
+\paragraph{Planned contributions.}
+\begin{enumerate}
+\item A formal problem, safe exploitation in a short encounter, with a per-game exploitability constraint (\S3).
+\item An exact testbed: reduced two-player Bluff \new{with undealt cards}, solved by CFR+, with exact exploitability, exact best responses and an exact Bayesian filter over opponent types and hidden cards.
+\item An exact regret decomposition into a price of safety and a price of ignorance (Lemma~2), \new{and a constraint-enforcing mixing rule with a worst-case guarantee (Proposition~1, Corollary~1)}.
+\item A Bayesian learner with entropy-gated, cap-enforced mixing and information-seeking calls.
+\item A comparison against model-free bandits, restricted Nash response and an oracle, plus robustness to model misspecification.
+\end{enumerate}
+
+\paragraph{Research questions.} \textbf{RQ1}: How many reveals and games are needed to identify an opponent's bluffing and calling propensities, and which is harder? \textbf{RQ2}: Given an information level, what is the best achievable trade-off between exploitation gain and exploitability? \textbf{RQ3}: Does explicit Bayesian modelling beat model-free strategy selection within a short encounter, and does the safety cap cost much? \textbf{RQ4}: Do the conclusions, and the safety guarantee, survive opponents outside the model class?
+
+\section{Preliminaries}
+\subsection{Notation}
+\begin{center}\small
+\begin{tabular}{@{}ll@{}}
+\toprule
+Symbol & Meaning\\\midrule
+$K,m$ & number of ranks; copies per rank ($Km$ cards)\\
+$h$ & \new{hand size, $h<Km/2$}; $U=Km-2h$ undealt cards\\
+$T$ & horizon: maximum number of plays per game\\
+$i\in\{1,2\},-i$ & player and opponent\\
+$H_i,P$ & hand of $i$; face-down pile\\
+$r_t$ & required rank at play $t$, $r_t=1+((t-1)\bmod K)$\\
+$\mathcal I_i,\pi_i,x_i$ & infosets, behavioural strategy, realization plan of $i$\\
+$u_i(\pi_i,\pi_{-i})$ & expected payoff to $i$, $u_1=-u_2$\\
+$\pi^*$ & CFR+ equilibrium; $v_i^*$ its value for $i$\\
+$\eps_i(\pi_i)$, $\emax(\pi)$ & exploitability of seat $i$; worst seat, the safety metric (Def.~3)\\
+$\theta=(\beta,\gamma)$ & opponent type: bluff and call propensity\\
+$\Theta,\sigma_\theta$ & type grid; policy of type $\theta$\\
+$b_g$ & belief over $\Theta$ at the start of game $g$\\
+$G$ & \new{encounter length (games against the stranger); the budget}\\
+$N_g$ & \new{number of reveals observed up to game $g$ (an outcome, not a budget)}\\
+$n$ & \new{information level of the measurement device (\S3.3)}\\
+$\alpha,\epsbar$ & mixing weight; safety level\\\bottomrule
+\end{tabular}\end{center}
+
+\subsection{Extensive-form games and exploitability}
+\begin{definition}[Two-player zero-sum extensive-form game]
+$\Gamma=(H,Z,A,P,\sigma_c,\{\mathcal I_i\},u)$ with finite histories $H$, terminals $Z$, actions $A(h)$, player function $P(h)\in\{1,2,c\}$ with chance distribution $\sigma_c$, information partitions $\mathcal I_i$, and $u_1=-u_2$. We assume perfect recall.
+\end{definition}
+A behavioural strategy maps each $I\in\mathcal I_i$ to a distribution over $A(I)$; equivalently a realization plan $x_i$ over sequences with $x_i(\emptyset)=1$ and $\sum_a x_i(\varsigma a)=x_i(\varsigma)$~\cite{koller1996}, related by $\pi_i(a\mid I)=x_i(\varsigma_I a)/x_i(\varsigma_I)$. Payoffs are bilinear in $(x_1,x_2)$.
+\begin{definition}[Best response] $\BR_i(\pi_{-i})\in\arg\max_{\pi_i}u_i(\pi_i,\pi_{-i})$.\end{definition}
+\begin{definition}[Exploitability]
+$\eps_i(\pi_i)=v_i^*-\min_{\pi_{-i}}u_i(\pi_i,\pi_{-i})\ge 0$. The agent plays both seats (alternating between games), so its strategy is a pair $\pi=(\pi_1,\pi_2)$. \new{The safety metric is the worst seat, $\emax(\pi)=\max\{\eps_1(\pi_1),\eps_2(\pi_2)\}$. The seat average $\eps_{\mathrm{avg}}(\pi)=\tfrac12(\eps_1+\eps_2)=\tfrac12(\BR_1\text{-value}+\BR_2\text{-value})$ is used only to report CFR convergence: an average constraint can hide one seat above the cap (e.g.\ $0.065$ and $0.035$ average to $0.05$).}
+\end{definition}
+\begin{definition}[CFR] CFR minimises per-infoset counterfactual regret; the average strategy satisfies $\eps_{\mathrm{avg}}(\bar\pi^N)=O(1/\sqrt N)$~\cite{zinkevich2007}. We use CFR+ (regret floor at zero, linear averaging), which converges much faster in practice.\end{definition}
+
+\subsection{Reduced two-player Bluff}
+\begin{definition}[Reduced Bluff, Bluff$(K,m,h,T)$]
+The deck has $K$ ranks with $m$ copies each. \new{Each player is dealt $h<Km/2$ cards; the remaining $U=Km-2h\ge 1$ cards are set aside face down and never revealed.} At play $t$ the active player chooses $S\subseteq H_{p_t}$ with $1\le|S|=c\le\min(m,|H_{p_t}|)$, places it face down and claims all $c$ cards have rank $r_t$. The responder either \textsc{Accept}s (the pile keeps $S$) or \textsc{Call}s (a showdown: $S$ is shown; if the claim was true the responder takes the whole pile, otherwise the claimant does). The responder moves next. A player who empties their hand wins ($+1$) if the last play is accepted or called and found true. After $T$ plays the payoff to player~1 is $\mathrm{sgn}(|H_2|-|H_1|)$.
+\end{definition}
+\new{\paragraph{Why undealt cards (feedback 1).} Under a full deal ($2h=Km$) each player's starting hand is the complement of the other's, so the responder can track the opponent's exact holdings, and a claim is often decidable without a call: it is provably false if the opponent cannot hold $c$ cards of rank $r_t$, and provably true if it cannot be a lie. Leaving $U$ cards undealt makes every own hand consistent with several opponent hands; in Bluff(3,2,2,$\cdot$) there are on average 3.5 consistent opponent hands (5.5 in Bluff(4,2,3,$\cdot$)) instead of one. Calls then carry real information and real risk. E1 quantifies this with the share of claims that are decidable from the responder's information under each game's equilibrium.}
+
+\new{\paragraph{Testbeds.} \textbf{S} $=$ Bluff(3,2,2,6): 95{,}581 nodes, 26{,}742 infosets, 2 undealt cards; used for all simulation experiments. \textbf{L} $=$ Bluff(4,2,3,4): 677{,}837 nodes, 45{,}985 infosets, 2 undealt cards; used for the exact experiments (E1, E3) to check that the conclusions transfer to a richer game. A feasibility check on both confirms that exploitation matters: against the five archetypes the exact exploitation gain $G^*$ (defined in Lemma~2) ranges from $0.04$ to $0.26$ on S and from $0.10$ to $0.20$ on L (payoff range $[-1,1]$). The earlier full-deal default ($K{=}4$, $m{=}2$, $h{=}4$) is dropped.}
+
+Public information: claims, responses, pile size, hand sizes, revealed cards. Private: own hand, picked-up pile contents, undealt cards.
+
+\subsection{Opponent types and observations}
+\begin{definition}[Opponent type]
+$\theta=(\beta,\gamma)\in[0,1]^2$ defines a fixed, hand-conditioned behavioural policy $\sigma_\theta$.
+\emph{Playing:} if no truthful play exists, play a uniformly random false claim; if no false play exists, a uniformly random truthful one; otherwise bluff w.p.\ $\beta$ and play truthfully w.p.\ $1-\beta$ (uniform within each category).
+\emph{Responding:} call w.p.\ 1 if the claim is provably false from the responder's own hand (it holds more than $m-c$ copies of $r_t$), else w.p.\ $\gamma_c=\gamma^{1/c}$.
+\end{definition}
+The grid is $\Theta=\{0.1,0.3,0.5,0.7,0.9\}^2$ ($|\Theta|=25$) with archetypes Honest $(0.1,0.1)$, Aggressive bluffer $(0.9,0.1)$, Suspicious caller $(0.3,0.9)$, Random $(0.5,0.5)$, Paranoid liar $(0.9,0.9)$.
+
+\begin{definition}[Reveals and the two channels \new{(revised)}]
+A \emph{reveal} is an event in which the agent learns the identity of cards the opponent played: the agent calls and $S$ is shown; the agent's own hand makes the claim provably false (\emph{implicit reveal}); or the agent picks up a pile containing opponent cards. The agent always observes public actions (\emph{action channel}). \new{Reveals are counted ($N_g$) as an outcome. They are not capped: the agent uses every observation, and their cost is already in the payoff, since each call risks the pile.}
+\end{definition}
+
+\section{Problem Formulation}
+\paragraph{Setting.} A \emph{match} is a sequence of $g=1,\dots,G$ games of Bluff between the agent and an opponent playing $\sigma_{\theta^*}$, with $\theta^*$ fixed and unknown; the agent plays seat $1+(g\bmod 2)$. It knows the rules, the family $\{\sigma_\theta\}$, and a prior $b_0$ over $\Theta$. \new{The budget is the encounter length $G$: the stranger will only be met a few times, so information must be gathered and used quickly.}
+
+\paragraph{Belief.} Let $O_g$ be the agent's observation sequence in game $g$ (its own information state at the end of the game). Since the agent's own action probabilities are identical for all histories consistent with $O_g$ (perfect recall), they cancel, and the exact posterior with hidden cards marginalised is
+\begin{equation}\label{eq:post}
+b_{g+1}(\theta)\;\propto\;b_g(\theta)\sum_{h\,\in\,\mathcal H(O_g)}\sigma_c(h)\,\sigma_\theta(h),
+\end{equation}
+where $\mathcal H(O_g)$ are the histories consistent with $O_g$ and $\sigma_\theta(h)$ the product of the opponent's action probabilities on $h$. Within a game the agent's strategy conditions on its information through the tree. \new{Unlike the original plan, the belief is updated after every game for the whole match.}
+
+\paragraph{Learning policy.} A learning policy $\varphi$ maps the history $O_{1:g-1}$ to a two-seat strategy $\pi_g$. Its exploitation gain and regret against $\theta^*$ are
+\begin{align}
+\mathcal G_g&=u(\pi_g,\sigma_{\theta^*})-u(\pi^*,\sigma_{\theta^*}),\\
+R_G&=\textstyle\sum_{g=1}^G\big[u(\pi^{\BR}_{\theta^*},\sigma_{\theta^*})-u(\pi_g,\sigma_{\theta^*})\big],\quad \pi^{\BR}_\theta=\BR(\sigma_\theta).
+\end{align}
+
+\begin{problem}[Safe exploitation in a short encounter \new{(revised)}]
+For a safety level $\epsbar\ge\emax(\pi^*)$ and encounter length $G$,
+\begin{equation}\label{eq:prob}
+\mathcal G_G(\epsbar)=\max_\varphi\ \mathbb E\Big[\sum_{g=1}^G\mathcal G_g\Big]\quad\text{s.t.}\quad \emax(\pi_g)\le\epsbar\ \ \forall g,\qquad \pi_g=\varphi(O_{1:g-1}).
+\end{equation}
+The curve $\epsbar\mapsto\mathcal G_G(\epsbar)$ is the exploitation--exploitability frontier for encounters of length $G$.
+\end{problem}
+
+\paragraph{Safe mixture.} Let $\sigma_b$ be the opponent obtained by drawing $\theta\sim b$ at a hidden chance root, $\pi^{\BR}_b=\BR(\sigma_b)$, and mix in realization-plan space:
+\begin{equation}\label{eq:mix}
+x^{(g)}=(1-\alpha_g)\,x^*+\alpha_g\,x^{\BR}_{b_g}.
+\end{equation}
+\begin{lemma}[Mixture properties]
+For a fixed opponent and $\alpha\in[0,1]$: (a) $u(x_\alpha,\sigma_{\theta^*})=(1-\alpha)u(x^*,\sigma_{\theta^*})+\alpha u(x^{\BR},\sigma_{\theta^*})$, so the gain is linear in $\alpha$; (b) for each seat $i$, $\alpha\mapsto\eps_i(x_{\alpha,i})$ is convex and $\eps_i(x_{\alpha,i})\le(1-\alpha)\eps_i(x^*_i)+\alpha\eps_i(x^{\BR}_i)$; hence $\emax(x_\alpha)$, a maximum of convex functions, is convex and\[\emax(x_\alpha)\le(1-\alpha)\emax(x^*)+\alpha\emax(x^{\BR}).\]
+\end{lemma}
+\begin{proof}[Proof sketch] Payoffs are bilinear in realization plans and $x_\alpha$ is a valid plan (linear constraints). Each $\eps_i$ is a pointwise maximum over opponent plans of functions linear in $x_{\alpha,i}$, hence convex; for the bound on $\emax$ use\[\textstyle\max_i[(1-\alpha)a_i+\alpha b_i]\le(1-\alpha)\max_i a_i+\alpha\max_i b_i.\]\end{proof}
+\begin{lemma}[Regret decomposition]
+Let $G^*=u(\pi^{\BR}_{\theta^*},\sigma_{\theta^*})-u(\pi^*,\sigma_{\theta^*})$ and $\Delta_g=u(\pi^{\BR}_{\theta^*},\sigma_{\theta^*})-u(\pi^{\BR}_{b_g},\sigma_{\theta^*})\ge0$. The per-game regret of~\eqref{eq:mix} is
+\[r_g=\underbrace{(1-\alpha_g)\,G^*}_{\text{price of safety}}+\underbrace{\alpha_g\,\Delta_g}_{\text{price of ignorance}}.\]
+\end{lemma}
+\begin{proof} Substitute Lemma~1(a) into $r_g$ and regroup.\end{proof}
+
+\new{\subsection{Enforcing the safety constraint (feedback 3)}
+\begin{proposition}[Exact enforcement]
+Let $\eps^*=\emax(x^*)\le\epsbar$ and $\eps^{\BR}=\emax(x^{\BR}_{b})$. Then (i) the feasible set $\{\alpha\in[0,1]:\emax(x_\alpha)\le\epsbar\}$ is an interval $[0,\alpha_{\max}]$; (ii) the \emph{chord rule}
+\[
+\hat\alpha(\epsbar)=\begin{cases}1 & \eps^{\BR}\le\epsbar,\\ \dfrac{\epsbar-\eps^*}{\eps^{\BR}-\eps^*} & \text{otherwise,}\end{cases}
+\]
+is feasible, $\hat\alpha\le\alpha_{\max}$; (iii) for any weight rule $\alpha^{\text{rule}}(b)$, the capped weight $\alpha_g=\min\{\alpha^{\text{rule}}(b_g),\hat\alpha_g\}$ satisfies $\eps_i(\pi_{g,i})\le\epsbar$ \emph{for both seats} and every $g$, so $\varphi$ is feasible for Problem~1.
+\end{proposition}
+\begin{proof}
+(i) A sublevel set of a convex function on $[0,1]$ is an interval, and it contains $0$ because $\emax(x_0)=\eps^*\le\epsbar$. (ii) By Lemma~1(b), $\emax(x_{\hat\alpha})\le(1-\hat\alpha)\eps^*+\hat\alpha\eps^{\BR}=\epsbar$. (iii) $\alpha_g\le\hat\alpha_g\le\alpha_{\max}$ and (i).
+\end{proof}
+The chord rule costs two exact exploitability evaluations per game (one best-response pass per seat). Because the constraint is evaluated on the strategy actually played, it also covers the information-seeking bonus (\S4.1), which enters through $x^{\BR}$. The tight $\alpha_{\max}$ can be found by bisection on exact $\emax$ in $\lceil\log_2(1/\mathrm{tol})\rceil$ evaluations; E3 measures the gap between the two. \emph{Per-seat variant:} seat $i$'s exploitability depends only on seat $i$'s strategy, so the constraints decouple and a separate chord weight $\hat\alpha_i=(\epsbar-\eps_i(x^*_i))/(\eps_i(x^{\BR}_i)-\eps_i(x^*_i))$ per seat is also feasible and never smaller than the common $\hat\alpha$. \emph{Unknown $v^*$:} with $x^*$ approximate, $v_1^*$ is bracketed by $[-\BR_2\text{-value}(x^*_1),\ \BR_1\text{-value}(x^*_2)]$, so we enforce the cap on certified upper bounds of $\eps_i$ (the bracket has width $2\eps_{\mathrm{avg}}(x^*)$: $1.6\times10^{-6}$ on S and $1.6\times10^{-3}$ on L). \emph{Infeasibility:} if $\epsbar<\emax(x^*)$ the learner raises an error and reports the constraint as infeasible, rather than silently playing $\alpha=0$.
+\begin{corollary}[Safety floor against any opponent]
+If $\emax(\pi_g)\le\epsbar$, then $u_i(\pi_{g,i},\sigma)\ge v_i^*-\epsbar$ \emph{in each seat $i$} and for \emph{every} opponent strategy $\sigma$, including opponents outside $\Theta$.
+\end{corollary}
+\begin{proof} $u_i(\pi_i,\sigma_{-i})\ge\min_{\pi_{-i}}u_i(\pi_i,\pi_{-i})=v_i^*-\eps_i(\pi_i)\ge v_i^*-\emax(\pi)$. A seat-averaged constraint would only give the seat-averaged bound.\end{proof}
+Corollary~1 is what E5 tests empirically: under misspecification the gain may vanish, but the loss relative to equilibrium play is bounded by $\epsbar$.}
+
+\new{\subsection{Information level as a measurement device (feedback 2)}
+In a deployed match the number of reveals is endogenous: it depends on how often the agent calls, which depends on its strategy, which depends on its belief. Plotting performance against games therefore confounds \emph{how much is known} with \emph{how the agent behaved}. To answer RQ1--RQ2 cleanly we define the \emph{information level} $n$: a passive observer (playing $x^*$) watches the opponent until its $n$-th reveal, and the posterior at that moment, $b^{(n)}$, is recorded. This freezing happens only in the analysis, to hold the amount of information fixed while we vary $\alpha$. No deployed agent stops learning. We then compute exactly, averaging over sampled $b^{(n)}$,
+\[
+\mathcal G^{(n)}(\alpha)=\mathbb E\big[u(x_\alpha(b^{(n)}),\sigma_{\theta^*})-u(x^*,\sigma_{\theta^*})\big],\qquad
+F_n(\epsbar)=\mathbb E\Big[\max_{\alpha:\ \emax(x_\alpha(b^{(n)}))\le\epsbar}\mathcal G(\alpha)\Big],
+\]
+giving one frontier per information level and the \emph{value of the $n$-th reveal}, $F_n-F_{n-1}$.}
+
+\paragraph{Identification metrics.} For $\delta\in(0,1)$, $\tau_\delta=\min\{g:b_g(\theta^*)\ge\delta\}$, in games and in reveals. Because grid types can be nearly payoff-equivalent, we also use the effective identification time $\tilde\tau_\eta=\min\{g:b_g(E_\eta(\theta^*))\ge0.9\}$ with $E_\eta(\theta^*)=\{\theta:u(\pi^{\BR}_{\theta^*},\sigma_{\theta^*})-u(\pi^{\BR}_\theta,\sigma_{\theta^*})\le\eta\}$, and the marginal errors $|\mathbb E_b[\beta]-\beta^*|$, $|\mathbb E_b[\gamma]-\gamma^*|$.
+
+\section{Proposed Solution}
+\subsection{Pipeline}
+\begin{enumerate}
+\item \textbf{Equilibrium reference.} Solve Bluff with CFR and CFR+ on a flattened tree (every tree level processed as one vectorised pass); track the seat-averaged exploitability $\eps_{\mathrm{avg}}(\bar\pi^N)$ with exact best-response traversals.
+\item \textbf{Opponent library.} $\sigma_\theta$ for the 25-type grid as policies over sequences, usable in either seat.
+\item \textbf{Bayesian filter.} Eq.~\eqref{eq:post} computed exactly. For each type we precompute $\sigma_c\sigma_\theta$ reach at every node and sum it over the agent's observation classes, so an update is one table lookup.
+\item \textbf{Posterior best response.} $\BR(\sigma_b)$ by a single backward pass using the mixture reach $\sum_\theta b(\theta)\,\sigma_c\sigma_\theta$ as counterfactual weights (type at a hidden chance root). Ablation: plug-in BR to the MAP type.
+\item \textbf{Safe mixing.} Eq.~\eqref{eq:mix} with (a) fixed $\alpha$, (b) entropy gating $\alpha^{\text{rule}}=\alpha_{\max}(1-H(b_g)/H(b_0))$, or (c) $\alpha^{\text{rule}}=1$; \new{each capped by the chord rule of Proposition~1}.
+\item \textbf{Information-seeking calls.} At each agent call edge we add $\lambda\cdot\mathrm{EIG}_b(I)$ to the counterfactual value, where $\mathrm{EIG}$ is the expected reduction in type entropy from the showdown, computed exactly from the observation classes. \new{This makes the trade explicit: a call is worth making for information only if $\lambda\,\mathrm{EIG}$ exceeds its expected cost in points. Because the bonus shapes $x^{\BR}$, the cap of Proposition~1 still bounds the resulting strategy.} $\lambda=0$ gives the passive learner.
+\end{enumerate}
+
+\begin{algorithm}[h]
+\caption{Safe Bayesian exploitation in an encounter of $G$ games \new{(revised)}}
+\KwIn{$x^*$, $\eps^*=\emax(x^*)$, grid $\Theta$, prior $b_0$, safety level $\epsbar$, weight rule $\alpha^{\text{rule}}$, $\lambda$}
+$b\gets b_0$\;
+\For{$g=1,\dots,G$}{
+  $x^{\BR}\gets$ best response to $\sigma_b$ with information bonus $\lambda\,\mathrm{EIG}_b$ at call edges\;
+  \lIf{$\epsbar<\eps^*$}{\textbf{report infeasible} and stop}
+  $\hat\alpha\gets$ chord rule$(\epsbar,\eps^*,\emax(x^{\BR}))$\tcp*{Prop.~1}
+  $\alpha\gets\min\{\alpha^{\text{rule}}(b),\hat\alpha\}$; \ $x\gets(1-\alpha)x^*+\alpha x^{\BR}$\tcp*{$\eps_1,\eps_2\le\epsbar$}
+  play game $g$ in seat $1+(g\bmod 2)$ with the behavioural strategy induced by $x$\;
+  update $b$ with the full observation sequence of game $g$ by Eq.~\eqref{eq:post}\tcp*{never frozen}
+}
+\end{algorithm}
+
+\subsection{Baselines}
+\begin{itemize}
+\item \textbf{Equilibrium} $\pi^*$ ($\alpha=0$) and \textbf{Oracle} (best response to the true opponent; defines regret).
+\item \textbf{Bayes-greedy} ($\alpha=1$, no cap) and \textbf{Bayes-MAP} (plug-in), to measure what the cap costs.
+\item \textbf{UCB1 / Exp3} over the portfolio $\{\pi^*\}\cup\{\pi^{\BR}_\theta:\theta\text{ an archetype}\}$~\cite{auer2002ucb,auer2002exp3}, and a sliding-window $\epsilon$-greedy \textbf{no-model} switcher.
+\item \textbf{Restricted Nash response} $\mathrm{RNR}(p)$~\cite{johanson2007}: in E3 with the true model, as the reference robust frontier; in E4 as \textbf{RNR-MAP}, responding to the current MAP type with $p=0.5$.
+\end{itemize}
+
+\subsection{Experiments \new{(re-scoped)}}
+\begin{center}\small
+\begin{tabularx}{\linewidth}{@{}l>{\raggedright\arraybackslash}p{3cm}>{\raggedright\arraybackslash}p{3.6cm}X@{}}
+\toprule
+\# & Experiment & Varied & Output\\\midrule
+E1 & CFR reference \new{and undealt cards} & iterations; CFR vs CFR+; game size; \new{full vs partial deal} & $\eps_{\mathrm{avg}}(\bar\pi^N)$ vs $N$; tree sizes; \new{share of claims decidable without a call}\\
+E2 & Identification (RQ1, H2) & archetype $\theta^*$; passive vs information-seeking agent & $b(\theta^*)$, $\tilde\tau_\eta$, $\beta$- vs $\gamma$-error, in games and reveals\\
+E3 & Frontier (RQ2, H1, H3; main) & \new{information level} $n\in\{0,1,2,5,10,20,50,\infty\}$; $\alpha$; RNR $p$; S and L & $F_n(\epsbar)$; price of safety vs ignorance; chord vs bisection vs per-seat; mixture vs RNR\\
+E4 & Learner comparison (RQ3, H4, H5) & learner; \new{encounter length $G\le100$} & $\mathbb E[R_G]$ vs $G$; gain; exploitability per game; \new{constraint violations}\\
+E5 & Misspecification (RQ4) & off-grid types, hand-size-dependent and greedy opponents, noisy and exact equilibrium & degradation of gain; \new{empirical check of Corollary~1}\\
+\bottomrule
+\end{tabularx}\end{center}
+\new{E6 (type switching) is moved to future work.}
+
+\paragraph{Metrics.} Exact expected payoff per game (computed on the tree for the strategy committed to, which removes sampling noise from regret); realised payoff; exploitation gain; exploitability of every strategy played; identification times; regret.
+\paragraph{Protocol.} Agent versus scripted opponents. 30 seeds per setting (20 and 8 belief samples per information level in E3 on S and L), means with 95\% confidence intervals. \new{Deals are drawn from a separate random stream so that all learners face the same deals (paired comparison).} Default $\epsbar=0.05$, $\lambda=0.2$, $\eta=0.01$, $G=100$.
+
+\subsection{Hypotheses}
+\textbf{H1.} With exact identification, gain is linear and exploitability convex in $\alpha$, so a small $\alpha$ buys a disproportionate share of the gain per unit of exploitability. \textbf{H2.} $\gamma$ is identified faster than $\beta$ (action vs reveal channel). \textbf{H3.} At low information levels the price of ignorance dominates; at high levels the price of safety does. \textbf{H4.} Bayesian modelling beats UCB/Exp3 in short encounters. \new{\textbf{H5.} The capped learners never violate $\epsbar$ in either seat and retain a substantial share of the uncapped gain; the RNR frontier dominates the mixture frontier, and the gap measures the cost of mixing instead of re-solving.} These are hypotheses; negative results will be reported as such.
+
+\subsection{Success criteria, limitations and risks}
+\textbf{Success:} (i) a quantified frontier per information level on both testbeds (E3); (ii) identification times for every archetype (E2); (iii) a comparison of Bayesian and model-free learners with confidence intervals and \new{zero constraint violations for the capped learners} (E4); (iv) the misspecification study (E5).
+
+\textbf{Limitations.} \emph{Scale:} exact methods are limited to reduced games; conclusions may not transfer to the 52-card game. \emph{Type model:} real opponents are not two-parameter policies; E5 measures the bias. \new{\emph{Conservatism:} the chord rule is guaranteed but may be loose; we measure its gap to bisection. \emph{Exploitability is defined against a best-responding adversary}, a worst case that scripted opponents never realise; the cap is a guarantee, not a prediction of losses.}
+
+\textbf{Out of scope (future work).} Type-switching opponents (former E6), multiplayer Bluff, adaptive opponents that also learn.
+
+\section{Contribution}
+\begin{center}\small
+\begin{tabularx}{\linewidth}{@{}lX@{}}\toprule
+Member & Tasks\\\midrule
+Somireddy Bhavitha & Game engine with undealt cards, flattened tree; CFR/CFR+; exact best response and exploitability; E1 including the decidable-claim analysis.\\
+Sejal Vinayak Kadgi & Opponent library; exact Bayesian filter over observation classes; posterior and MAP best response; payoff-equivalence classes; E2.\\
+Siri Durugapu & Realization-plan mixing; chord and bisection caps (Prop.~1); information-seeking bonus; RNR; E3 (main result).\\
+Lavanya Gupta & Bandit, no-model and RNR-MAP baselines; paired-seed experiment runner and plotting; E4 and E5.\\
+All members & Problem formulation, analysis, report.\\\bottomrule
+\end{tabularx}\end{center}
+
+\begin{thebibliography}{99}\small
+\bibitem{albrecht2018} S.~V. Albrecht and P.~Stone. Autonomous agents modelling other agents: A comprehensive survey and open problems. \emph{Artificial Intelligence}, 258:66--95, 2018.
+\bibitem{auer2002ucb} P.~Auer, N.~Cesa-Bianchi, and P.~Fischer. Finite-time analysis of the multiarmed bandit problem. \emph{Machine Learning}, 47(2--3):235--256, 2002.
+\bibitem{auer2002exp3} P.~Auer, N.~Cesa-Bianchi, Y.~Freund, and R.~E. Schapire. The nonstochastic multiarmed bandit problem. \emph{SIAM J.\ Computing}, 32(1):48--77, 2002.
+\bibitem{bard2013} N.~Bard, M.~Johanson, N.~Burch, and M.~Bowling. Online implicit agent modelling. In \emph{Proc.\ AAMAS}, 2013.
+\bibitem{brown2018} N.~Brown and T.~Sandholm. Superhuman AI for heads-up no-limit poker: Libratus beats top professionals. \emph{Science}, 359(6374):418--424, 2018.
+\bibitem{brown2019} N.~Brown and T.~Sandholm. Superhuman AI for multiplayer poker. \emph{Science}, 365(6456):885--890, 2019.
+\bibitem{ganzfried2015} S.~Ganzfried and T.~Sandholm. Safe opponent exploitation. \emph{ACM Trans.\ Economics and Computation}, 3(2):8, 2015.
+\bibitem{johanson2009} M.~Johanson and M.~Bowling. Data biased robust counter strategies. In \emph{Proc.\ AISTATS}, 2009.
+\bibitem{johanson2007} M.~Johanson, M.~Zinkevich, and M.~Bowling. Computing robust counter-strategies. In \emph{NeurIPS}, 2007.
+\bibitem{koller1996} D.~Koller, N.~Megiddo, and B.~von Stengel. Efficient computation of equilibria for extensive two-person games. \emph{Games and Economic Behavior}, 14(2):247--259, 1996.
+\bibitem{lanctot2009} M.~Lanctot, K.~Waugh, M.~Zinkevich, and M.~Bowling. Monte Carlo sampling for regret minimization in extensive games. In \emph{NeurIPS}, 2009.
+\bibitem{neller2013} T.~W. Neller and M.~Lanctot. An introduction to counterfactual regret minimization. 2013.
+\bibitem{shoham2008} Y.~Shoham and K.~Leyton-Brown. \emph{Multiagent Systems: Algorithmic, Game-Theoretic, and Logical Foundations}. Cambridge University Press, 2008.
+\bibitem{southey2005} F.~Southey, M.~Bowling, B.~Larson, C.~Piccione, N.~Burch, D.~Billings, and C.~Rayner. Bayes' bluff: Opponent modelling in poker. In \emph{Proc.\ UAI}, 2005.
+\bibitem{zinkevich2007} M.~Zinkevich, M.~Johanson, M.~Bowling, and C.~Piccione. Regret minimization in games with incomplete information. In \emph{NeurIPS}, 2007.
+\end{thebibliography}
+\end{document}

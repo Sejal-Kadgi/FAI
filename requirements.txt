@@ -1,0 +1,20 @@
+# Verified with Python 3.13.18 (Linux x86_64; full pipeline) and 3.12.3 (tests and
+# plots.py, identical outputs). All pins have wheels for Windows x86_64, Python 3.12/3.13. These are the exact versions
+# used to produce every result, figure and table in the report.
+numpy==2.5.3
+matplotlib==3.11.2
+pytest==9.1.1
+# matplotlib's dependencies, pinned to the versions that were installed:
+contourpy==1.4.0
+cycler==0.12.1
+fonttools==4.67.0
+kiwisolver==1.5.1
+packaging==26.3
+pillow==12.3.0
+pyparsing==3.3.3
+python-dateutil==2.9.0.post0
+six==1.17.0
+# pytest's dependencies:
+iniconfig==2.3.0
+pluggy==1.6.0
+Pygments==2.21.0

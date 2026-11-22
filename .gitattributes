@@ -1,0 +1,7 @@
+# Keep Unix line endings on every platform, so regenerated results compare
+# byte-for-byte with the committed ones (also on Windows).
+* text=auto eol=lf
+*.png binary
+*.pdf binary
+*.pkl binary
+*.npy binary

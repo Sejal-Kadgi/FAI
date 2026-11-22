@@ -1,0 +1,12 @@
+# environment and caches
+.venv/
+__pycache__/
+.pytest_cache/
+# recomputed by run_all.py (equilibria, RNR library)
+results/cache/
+# LaTeX build files
+report/*.aux
+report/*.log
+report/*.out
+report/*.fls
+report/*.fdb_latexmk
